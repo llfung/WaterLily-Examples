@@ -4,7 +4,7 @@ import Plots
 
 function sphere(L=2^5;Re=5e2,mem=Array,U=1,T=Float32)
     # Define simulation size, geometry dimensions, & viscosity
-    R = T(L/8); ν = U*R/Re; center = SA[L/2,L/2,L];
+    R = T(L/8); ν = U*R/Re; center = SA[L/2,L/2,L/2];
     a=R
     b=R
     c=1.5*R
@@ -20,7 +20,7 @@ function sphere(L=2^5;Re=5e2,mem=Array,U=1,T=Float32)
         + abs2(((x[3]-center[3])/sqrt(2)-(x[2]-center[2])/sqrt(2))/c) 
         -1)) 
     # Return initialized simulation
-    Simulation((L,L,2L),(0,0,-U),R;ν,body,mem,T, Δt=0.0001)
+    Simulation((L,L,L),(0,0,-U),R;ν,body,mem,T)
 end
 
 function ω!(arr, sim)
@@ -34,13 +34,13 @@ function get_forces!(sim,t)
     force = WaterLily.total_force(sim)
     force./(0.5sim.L*sim.U^2) # scale the forces!
 end
-function get_moment!(sim,t,x₀=SA[L/2,L/2,L])
+function get_moment!(sim,t,x₀=SA[L/2,L/2,L/2])
     sim_step!(sim,t,remeasure=false)
     force = viscous_moment(x₀,sim)
     force./(0.5sim.L^2*sim.U^2) # scale the forces!
 end
 function plot_ωx!(sim,t,x₀=Int(L/2+1))
-    sim_step!(sim,t,remeasure=false)
+    sim_step!(sim,t,remeasure=true)
     R = inside(sim.flow.p)
     @WaterLily.inside sim.flow.σ[I] = WaterLily.curl(1,I,sim.flow.u)*sim.L/sim.U
     flood(sim.flow.σ[R[x₀,:,:]] |> Array; clims=(-2,2), 
@@ -48,7 +48,7 @@ function plot_ωx!(sim,t,x₀=Int(L/2+1))
     xlim=(0,L),ylim=(0,2*L))
     println("tU/L=",round(t,digits=4),
             ", Δt=",round(sim.flow.Δt[end],digits=3))
-    return viscous_moment(SA[L/2,L/2,L],sim)./(0.5sim.L^2*sim.U^2)
+    return viscous_moment(SA[L/2,L/2,L/2],sim)./(0.5sim.L^2*sim.U^2)
 end
 
 """
@@ -68,11 +68,11 @@ end
 ##
 using CUDA
 # make sim and run
-L=2^8
-sim = sphere(L;Re=1e0, mem=CuArray)
+L=2^6
+sim = sphere(L;Re=32, mem=CuArray)
 t₀ = sim_time(sim)
-duration = 0.1
-step = 0.0001
+duration = 50.0
+step = 0.01
 
 # Run for visualization
 # viz!(sim;f=ω!,duration,step,video="spheroid.mp4",algorithm=:mip,colormap=:algae)
@@ -82,10 +82,27 @@ Plots.@gif for ti in range(t₀,t₀+duration;step)
     tmp = plot_ωx!(sim,ti)
     push!(moments, tmp)
 end
-
-
+save!("spheroid_test_start.jld2",sim)
+save!("spheroid_test.jld2",sim)
+##
+Re_Array = 1.0./(0.04:0.01:5.0) |> collect
+for Re in Re_Array
+    global moments
+    sim_ = sphere(L;Re, mem=CuArray)
+    load!(sim_;fname="spheroid_test.jld2")
+    t₀ = sim_time(sim_)
+    duration = 50.0
+    step = 0.1
+    Plots.@gif for ti in range(t₀,t₀+duration;step) 
+        tmp = plot_ωx!(sim_,ti)
+        push!(moments, tmp)
+    end
+    save!("spheroid_test.jld2",sim_)
+end
+# sim2 = sphere(L;Re=1e1, mem=CuArray)
+# load!(sim2; fname="spheroid_test.jld2")
 ## Run for force measurement
-times = collect(t₀:step:t₀+duration)
+# times = collect(t₀:step:t₀+duration)
 # forces = [get_forces!(sim,t) for t in times]
 # moments = [get_moment!(sim,t) for t in times]
 
@@ -95,6 +112,6 @@ import Plots
 #     xlabel="tU/L",
 #     ylabel="Pressure force coefficients")
 
-Plots.plot(times, getindex.(moments,1);
-    xlabel="tU/L",
-    ylabel="Moment force coefficients")
+# Plots.plot(times, getindex.(moments,1);
+#     xlabel="tU/L",
+#     ylabel="Moment force coefficients")
