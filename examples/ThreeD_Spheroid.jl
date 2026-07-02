@@ -1,10 +1,10 @@
 using WaterLily,StaticArrays, JLD2
-# using CUDA
+using CUDA
 import Plots
 
 include("../CVMetrics.jl")
 
-step = 0.01
+step = 0.005
 import WaterLily: CFL
 
 function CFL(a::WaterLily.AbstractFlow)
@@ -62,14 +62,14 @@ function steps_w_export!(sim,t;measure_body=measure_body,contour_plane=Int(L/2+1
 end
 
 ## Setup simulation 
-L=2^7
-R=L/32 |> Float32
+L=2^8
+R=L/64 |> Float32
 center = SA{Float32}[L/2,L/2,L/2]
 body = spheroid_body(center, R, R, 3*R, Float32(pi/4))
 measure_body = spheroid_body(center, R+2, R+2, 3*(R+2), Float32(pi/4))
-sim = sim_init(body, L, R; Re=3f0, mem=Array) # Re=3.0
+sim = sim_init(body, L, 3*R; Re=3f0, mem=Array) # Re=3.0
 t₀ = sim_time(sim)
-duration = 3.0
+duration = 10.0
 # step = 0.01
 
 ## Run simulation and export forces and moments
