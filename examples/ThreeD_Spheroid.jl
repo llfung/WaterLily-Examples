@@ -4,7 +4,7 @@ import Plots
 
 include("../CVMetrics.jl")
 
-step = 0.005
+step = 0.01
 import WaterLily: CFL
 
 function CFL(a::WaterLily.AbstractFlow)
@@ -35,15 +35,21 @@ function sim_init(body,L,R;Re=3e0,mem=Array,U=1,T=Float32)
 end
 ## Additional helpers for viscous moment calculation
 function get_forces(sim,measure_body)
-    force = pressure_force(sim.flow.p,sim.flow.f,measure_body) + 
-    viscous_force(sim.flow.u,sim.flow.ν,sim.flow.f,measure_body) + 
-    flux_force(sim.flow.u,sim.flow.f,measure_body)
+    p = sim.flow.p |> Array
+    u = sim.flow.u |> Array
+    f = sim.flow.f |> Array
+    force = pressure_force(p,f,measure_body) + 
+    viscous_force(u,sim.flow.ν,f,measure_body) + 
+    flux_force(u,f,measure_body)
     force./(sim.L^2*sim.U^2) # scale the forces!
 end
 function get_moment(sim,measure_body;x₀=center)
-    moment = pressure_moment(x₀,sim.flow.p,sim.flow.f,measure_body) + 
-    viscous_moment(x₀,sim.flow.u,sim.flow.ν,sim.flow.f,measure_body) + 
-    flux_moment(x₀,sim.flow.u,sim.flow.f,measure_body)
+    p = sim.flow.p |> Array
+    u = sim.flow.u |> Array
+    f = sim.flow.f |> Array
+    moment = pressure_moment(x₀,p,f,measure_body) + 
+    viscous_moment(x₀,u,sim.flow.ν,f,measure_body) + 
+    flux_moment(x₀,u,f,measure_body)
     moment./(sim.L^3*sim.U^2) # scale the moments!
 end
 function plot_field(sim,t;contour_plane=Int(L/2+1))
@@ -66,10 +72,10 @@ L=2^8
 R=L/64 |> Float32
 center = SA{Float32}[L/2,L/2,L/2]
 body = spheroid_body(center, R, R, 3*R, Float32(pi/4))
-measure_body = spheroid_body(center, R+2, R+2, 3*(R+2), Float32(pi/4))
-sim = sim_init(body, L, 3*R; Re=3f0, mem=Array) # Re=3.0
+measure_body = spheroid_body(center, R+2.83f0, R+2.83f0, 3f0*(R+2.82f0), Float32(pi/4))
+sim = sim_init(body, L, 3*R; Re=3f0, mem=CuArray) # Re=3.0
 t₀ = sim_time(sim)
-duration = 10.0
+duration = 5.0
 # step = 0.01
 
 ## Run simulation and export forces and moments
