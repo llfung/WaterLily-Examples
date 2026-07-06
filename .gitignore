@@ -11,3 +11,4 @@ vtk_data/
 *.jld2
 
 venv/
+Convergence_Study*
