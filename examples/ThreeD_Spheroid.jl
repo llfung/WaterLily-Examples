@@ -69,7 +69,7 @@ end
 
 ## Setup simulation 
 L=2^8
-R=L/64 |> Float32
+R=L/32 |> Float32
 center = SA{Float32}[L/2,L/2,L/2]
 body = spheroid_body(center, R, R, 3*R, Float32(pi/4))
 measure_body = spheroid_body(center, R+2.83f0, R+2.83f0, 3f0*(R+2.82f0), Float32(pi/4))

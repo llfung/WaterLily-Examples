@@ -18,21 +18,31 @@ function viscous_moment(x₀,u,ν,df,body,t=0)
 end
 
 # Flux through CV surface
+"""
+    flux_force(sim::Simulation)
+Compute the flux force through the surface of a fictitious body.
+"""
+@inline flux_force_(I::CartesianIndex{m} where m, u, n) = @views dot(u[I,:], n[I,:])
 flux_force(sim) = flux_force(sim.flow,sim.body)
 flux_force(flow,body) = flux_force(flow.u,flow.f,body,WaterLily.time(flow))
 function flux_force(u,df,body,t=0)
     Tu = eltype(u); To = promote_type(Float64,Tu)
     df .= zero(Tu)
-    WaterLily.@loop df[I,:] .= WaterLily.dot(u[I,:],WaterLily.nds(body,WaterLily.loc(0,I,Tu),t))*u[I,:] over I ∈ WaterLily.inside_u(u)
+    WaterLily.@loop df[I,:] .= WaterLily.nds(body,WaterLily.loc(0,I,Tu),t) over I ∈ WaterLily.inside_u(df)
+    WaterLily.@loop df[I,:] .= flux_force_(I, u, df) over I ∈ WaterLily.inside_u(df)
+    df .*= u
     sum(To,df,dims=ntuple(i->i,ndims(u)-1))[:] |> Array
 end
 
 flux_moment(x₀,sim) = flux_moment(x₀,sim.flow,sim.body)
 flux_moment(x₀,flow,body) = flux_moment(x₀,flow.u,flow.f,body,WaterLily.time(flow))
+# @inline flux_moment_(I::CartesianIndex{m} where m, u, n) = @views dot(u[I,:], n[I,:])
 function flux_moment(x₀,u,df,body,t=0)
     Tu = eltype(u); To = promote_type(Float64,Tu)
     df .= zero(Tu)
-    WaterLily.@loop df[I,:] .= WaterLily.cross(WaterLily.loc(0,I,Tu)-x₀,WaterLily.dot(u[I,:],WaterLily.nds(body,WaterLily.loc(0,I,Tu),t))*u[I,:]) over I ∈ WaterLily.inside_u(u)
+    WaterLily.@loop df[I,:] .= WaterLily.nds(body,WaterLily.loc(0,I,Tu),t) over I ∈ WaterLily.inside_u(df)
+    WaterLily.@loop df[I,:] .= flux_force_(I, u, df) over I ∈ WaterLily.inside_u(df)
+    df .*= u
+    WaterLily.@loop df[I,:] .= WaterLily.cross(WaterLily.loc(0,I,Tu)-x₀,df[I,:]) over I ∈ WaterLily.inside_u(df)
     sum(To,df,dims=ntuple(i->i,ndims(u)-1))[:] |> Array
 end
-
